@@ -17,7 +17,7 @@ CLIENT_ID = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 REDIRECT_URI = os.getenv('REDIRECT_URI', 'http://localhost:8888/callback')
 REDIRECT_URI = 'http://localhost:8888/callback'
-SCOPE = 'playlist-read-private playlist-modify-private playlist-modify-public'
+SCOPE = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read'
 AUTH_URL = 'https://accounts.spotify.com/authorize'
 TOKEN_URL = 'https://accounts.spotify.com/api/token'
 API_BASE_URL = 'https://api.spotify.com/v1'
@@ -43,6 +43,8 @@ def get_current_user(access_token):
     if response.status_code == 200:
         return response.json()
     return None
+
+
 
 def get_auth_code_via_browser():
     params = {
@@ -70,6 +72,7 @@ def getPlaylists(accessToken):
     headers = {'Authorization': f'Bearer {accessToken}'}
     response = requests.get(f"{API_BASE_URL}/me/playlists", headers=headers)
     if response.status_code == 200:
+
         return response.json()
     else:
         print("\033[31mFailed to recieve playlist data. Token", response.status_code)
@@ -87,6 +90,7 @@ def printPlaylistData(data):
                     print(h.lenformat(x, 15), ":", i[x])
                 elif t == dict:
                     print(h.lenformat(x, 15), ":")
+
                     tmp = i[x].keys()
                     for c, n in enumerate(tmp):
                         print(" " * 15, n)
@@ -103,54 +107,101 @@ def getPlaylistItems(accessToken, UPLID):
     if response.status_code == 200:
         return response.json()
     else:
+
         print(c.red + f"Error fetching playlist items for playlist {UPLID} - Token {response.status_code}" +c.clear)
         return None
 
+def getLikedSongDetails(access_token):
+    """Return a list of liked songs with details (name, uri, artists, added_at)."""
+    headers = {'Authorization': f'Bearer {access_token}'}
+    url = f"{API_BASE_URL}/me/tracks"
+    songs = []
+    params = {'limit': 50, 'offset': 0}
+    while True:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            print(c.red + f"Error fetching liked songs: {response.status_code}" + c.clear)
+            break
+        data = response.json()
+        for item in data.get('items', []):
+            track = item.get('track')
+            if not track:
+                continue
+            songs.append({
+                'name': track.get('name'),
+                'uri': track.get('uri'),
+                'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]),
+                'added_at': item.get('added_at', ''),
+            })
+        if data.get('next'):
+            params['offset'] += params['limit']
+        else:
+            break
+    return songs
 
+def getPlaylistItemsDetailed(access_token, playlist_id):
+    """Return a list of track dicts with details for a playlist."""
+    headers = {'Authorization': f'Bearer {access_token}'}
+    url = f"{API_BASE_URL}/playlists/{playlist_id}/tracks"
+    tracks = []
+    params = {'limit': 100, 'offset': 0}
+    while True:
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code != 200:
+            print(c.red + f"Error fetching playlist items: {response.status_code}" + c.clear)
+            break
+        data = response.json()
+        for item in data.get('items', []):
+            track = item.get('track')
+            if not track:
+                continue
+            tracks.append({
+                'name': track.get('name'),
+                'uri': track.get('uri'),
+                'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]),
+                'added_at': item.get('added_at', ''),
+            })
+        if data.get('next'):
+            params['offset'] += params['limit']
+        else:
+            break
+    return tracks
 
+def selectPlaylistInteractively(playlists):
+    """Prompt user to select a playlist from a list."""
+    items = playlists.get('items', [])
+    if not items:
+        print(c.red + "No playlists available." + c.clear)
+        return None
+    print(c.green + "\nAvailable Playlists:" + c.clear)
+    for idx, pl in enumerate(items, 1):
+        print(f"{idx:2d}. {c.blue}{pl['name']}{c.clear} ({c.cyan}{pl['id']}{c.clear})")
+    while True:
+        try:
+            choice = int(input(c.yellow + "Select playlist number: " + c.clear))
+            if 1 <= choice <= len(items):
+                return items[choice-1]
+        except Exception:
+            pass
+        print(c.red + "Invalid selection. Try again." + c.clear)
 
+def addSongsToPlaylist(access_token, playlist_id, track_uris):
+    """Add a list of track URIs to a playlist. Returns True if successful."""
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+    url = f"{API_BASE_URL}/playlists/{playlist_id}/tracks"
+    # Spotify API allows max 100 tracks per request
+    for i in range(0, len(track_uris), 100):
+        uris = track_uris[i:i+100]
+        payload = {'uris': uris}
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code not in (200, 201):
+            print(c.red + f"Failed to add tracks: {response.status_code}" + c.clear)
+            return False
+    return True
 if __name__ == '__main__':
-    localServer.start_server()
-    code = get_auth_code_via_browser()
-    print("\033[32mAuth code received.\033[0;0m")
-
-    token = get_access_token(code)
-    user = get_current_user(token)
-    if user and 'display_name' in user:
-        print(f"Logged in as: {user['display_name']}")
-    else:
-        print("Failed to retrieve user info.")
-    playlistData: dict | None = getPlaylists(token)
-    if playlistData == None:
-        raise ValueError("PlaylistData should not be None")
-    
-    print("\n\n")
-    names = {}
-    for i in playlistData["items"]: names[i["name"]] = i["id"]
-    for i in names:
-        print(c.black + names[i], c.clear + i)
-
-
-    tracks = getPlaylistItems(token, "20pOuuPJukrQ1SpYi8hlaD")
-    if isinstance(tracks, dict):
-        for i in tracks:
-            if i != "items":
-                print(c.cyan, i, c.clear)
-                if not isinstance(tracks[i], (int, str)) and tracks[i] is not None:
-                    for n in tracks[i]:
-                        print(n)
-                elif isinstance(tracks[i], str):
-                    print(tracks[i])
-                else:
-                    print(tracks[i])
-            if i == "items":
-                base = tracks["items"]
-                for b in base:
-                    for n in b:
-                        if type(b[n]) is dict:
-                            print(c.blue + n)
-                            for x in b[n]:
-                                print(c.magenta + x, c.clear + str( b[n][x]))
-                            print(c.clear, end="")
-                        else:print(c.blue + n, c.clear +str(b[n]))
-                    print("\n")
+    # Unified entry point: run the merger as described in the README
+    from liked_songs_merger import main as merger_main
+    merger_main()
