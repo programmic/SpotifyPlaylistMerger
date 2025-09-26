@@ -74,13 +74,10 @@ def main():
     print("This tool will help you add songs from your Liked Songs to another playlist")
     print("in reverse chronological order (newest songs first)\n")
     
-    # Start local server for authentication
+    # Start local server and obtain a valid access token (refresh if possible)
     localServer.start_server()
-    
-    # Authenticate
     print(f"{yellow}Authenticating with Spotify...{clear}")
-    auth_code = get_auth_code_via_browser()
-    access_token = get_access_token(auth_code)
+    access_token = get_or_refresh_access_token(interactive=True)
     
     user = get_current_user(access_token)
     if user and 'display_name' in user:

@@ -20,7 +20,7 @@ from scripts.liked_songs_merger import (
     display_song_list,
     confirm_addition
 )
-from scripts.main import *
+from scripts.main import * 
 import scripts.localServer as localServer
 
 class TerminalMenu:
@@ -39,22 +39,18 @@ class TerminalMenu:
         print(f"\n{green}=== Spotify Authentication ==={clear}")
         
         try:
-            # Start local server for authentication
+            # Try to get or refresh tokens. If interactive auth is needed,
+            # start the local server first so the redirect can be received.
+            # get_or_refresh_access_token will perform an interactive flow
+            # if necessary.
+            # Ensure local server is running before interactive auth is attempted.
             localServer.start_server()
-            
-            print(f"{yellow}Opening browser for authentication...{clear}")
-            auth_code = get_auth_code_via_browser()
-            
-            if not auth_code:
-                print(f"{red}Failed to get authorization code{clear}")
-                return False
-                
-            self.access_token = get_access_token(auth_code)
+            self.access_token = get_or_refresh_access_token(interactive=True)
             
             if not self.access_token:
                 print(f"{red}Failed to get access token{clear}")
                 return False
-                
+
             self.current_user = get_current_user(self.access_token)
             
             if self.current_user and 'display_name' in self.current_user:
