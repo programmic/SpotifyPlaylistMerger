@@ -54,3 +54,15 @@ def abschnitt(pBeschriftung):
     print("\n")
     print("-"*25)
     print()
+
+def customProgressBar(iterable, total, width=40, newline:bool=False):
+    """Custom progress bar generator."""
+    for i, item in enumerate(iterable, 1):
+        progress = int(round((i / total) * width))  # Adjusted to use round to avoid truncation errors
+        bar = f"[{'#' * progress}{'-' * (width - progress)}]"
+        print(f"\r{bar} {i}/{total}", end="", flush=True)
+        yield item
+    if newline:
+        print()  # Ensure a newline after the progress bar completes
+    else:
+        print("\r\r" + " " * (width + 20) + "\r", end="", flush=True)  # Clear the progress bar line completely

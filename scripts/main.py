@@ -12,6 +12,7 @@ import colors as c
 import json
 import tempfile
 from pathlib import Path
+from tqdm import tqdm
 
 # Load environment variables
 load_dotenv()
@@ -197,46 +198,30 @@ def get_auth_code_via_browser():
     return None
 
 def getPlaylists(accessToken):
-    """Fetch all playlists for the current user and return only those the
-    user can edit (playlists they own or collaborative playlists).
-
-    Returns a dict with an 'items' list (to keep compatibility with callers),
-    or None on error.
-    """
+    """Fetch all playlists the current user can edit (owned or collaborative)."""
     headers = {'Authorization': f'Bearer {accessToken}'}
 
-    # First get current user id
-    user_resp = requests.get(f"{API_BASE_URL}/me", headers=headers)
-    if user_resp.status_code != 200:
-        print("\033[31mFailed to retrieve current user. Token", user_resp.status_code)
+    # Get current user ID
+    resp = requests.get(f"{API_BASE_URL}/me", headers=headers)
+    if resp.status_code != 200:
+        print(f"\033[31mFailed to retrieve current user. Status {resp.status_code}\033[0m")
         return None
-    user = user_resp.json()
-    user_id = user.get('id')
+    user_id = resp.json().get('id')
 
-    # Page through /me/playlists to collect all playlists
-    items = []
-    url = f"{API_BASE_URL}/me/playlists"
-    params = {'limit': 50, 'offset': 0}
-    while True:
-        resp = requests.get(url, headers=headers, params=params)
+    # Page through playlists
+    editable = []
+    url = f"{API_BASE_URL}/me/playlists?limit=50"
+    while url:
+        resp = requests.get(url, headers=headers)
         if resp.status_code != 200:
-            print("\033[31mFailed to receive playlist data. Token", resp.status_code)
+            print(f"\033[31mFailed to retrieve playlists. Status {resp.status_code}\033[0m")
             return None
         data = resp.json()
-        page_items = data.get('items', [])
-        items.extend(page_items)
-        if data.get('next'):
-            params['offset'] += params['limit']
-        else:
-            break
-
-    # Filter to playlists the user can edit: owned by user or collaborative
-    editable = []
-    for pl in items:
-        owner = pl.get('owner', {}) or {}
-        owner_id = owner.get('id')
-        if owner_id == user_id or pl.get('collaborative'):
-            editable.append(pl)
+        for pl in data.get('items', []):
+            owner_id = (pl.get('owner') or {}).get('id')
+            if owner_id == user_id or pl.get('collaborative'):
+                editable.append(pl)
+        url = data.get('next')  # next page URL
 
     return {'items': editable}
 
@@ -279,13 +264,19 @@ def getLikedSongDetails(access_token):
     url = f"{API_BASE_URL}/me/tracks"
     songs = []
     params = {'limit': 50, 'offset': 0}
+
+    # Fetch the first page to determine total number of items
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code != 200:
+        print(c.red + f"Error fetching liked songs: {response.status_code}" + c.clear)
+        return songs
+    data = response.json()
+    total = data.get('total', 1)  # Total number of liked songs
+
+    progress = 0
     while True:
-        response = requests.get(url, headers=headers, params=params)
-        if response.status_code != 200:
-            print(c.red + f"Error fetching liked songs: {response.status_code}" + c.clear)
-            break
-        data = response.json()
-        for item in data.get('items', []):
+        items = data.get('items', [])
+        for item in items:
             track = item.get('track')
             if not track:
                 continue
@@ -295,10 +286,19 @@ def getLikedSongDetails(access_token):
                 'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]),
                 'added_at': item.get('added_at', ''),
             })
+            progress += 1
+            bar = f"[{'#' * int((progress / total) * 40)}{'-' * (40 - int((progress / total) * 40))}]"
+            print(f"\r{bar} {progress}/{total}", end="", flush=True)
         if data.get('next'):
             params['offset'] += params['limit']
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                print(c.red + f"Error fetching liked songs: {response.status_code}" + c.clear)
+                break
+            data = response.json()
         else:
             break
+    print()  # Newline after progress bar
     return songs
 
 def getPlaylistItemsDetailed(access_token, playlist_id):
@@ -307,13 +307,19 @@ def getPlaylistItemsDetailed(access_token, playlist_id):
     url = f"{API_BASE_URL}/playlists/{playlist_id}/tracks"
     tracks = []
     params = {'limit': 100, 'offset': 0}
+
+    # Fetch the first page to determine total number of items
+    response = requests.get(url, headers=headers, params=params)
+    if response.status_code != 200:
+        print(c.red + f"Error fetching playlist items: {response.status_code}" + c.clear)
+        return tracks
+    data = response.json()
+    total = data.get('total', 1)  # Total number of tracks
+
+    progress = 0
     while True:
-        response = requests.get(url, headers=headers, params=params)
-        if response.status_code != 200:
-            print(c.red + f"Error fetching playlist items: {response.status_code}" + c.clear)
-            break
-        data = response.json()
-        for item in data.get('items', []):
+        items = data.get('items', [])
+        for item in items:
             track = item.get('track')
             if not track:
                 continue
@@ -323,10 +329,19 @@ def getPlaylistItemsDetailed(access_token, playlist_id):
                 'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]),
                 'added_at': item.get('added_at', ''),
             })
+            progress += 1
+            bar = f"[{'#' * int((progress / total) * 40)}{'-' * (40 - int((progress / total) * 40))}]"
+            print(f"\r{bar} {progress}/{total}", end="", flush=True)
         if data.get('next'):
             params['offset'] += params['limit']
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code != 200:
+                print(c.red + f"Error fetching playlist items: {response.status_code}" + c.clear)
+                break
+            data = response.json()
         else:
             break
+    print()  # Newline after progress bar
     return tracks
 
 def selectPlaylistInteractively(playlists):
@@ -336,11 +351,15 @@ def selectPlaylistInteractively(playlists):
         print(c.red + "No playlists available." + c.clear)
         return None
     print(c.green + "\nAvailable Playlists:" + c.clear)
+    print(f"{'ID':2}  {'Playlist Name':47} | {'Playlist ID':22} |")
     for idx, pl in enumerate(items, 1):
-        print(f"{idx:2d}. {c.blue}{pl['name']}{c.clear} ({c.cyan}{pl['id']}{c.clear})")
+        print(f"{idx:2d}. {pl['name']:45}   | {c.black}{pl['id']}{c.clear} |")
     while True:
         try:
-            choice = int(input(c.yellow + "Select playlist number: " + c.clear))
+            choice = int(input(c.blue + "Select playlist number: " + c.clear))
+            if choice == 0:
+                print(c.red + "Process stopped by user: Playlist 0 selected." + c.clear)
+                return None
             if 1 <= choice <= len(items):
                 return items[choice-1]
         except Exception:

@@ -10,12 +10,13 @@ import sys
 import time
 from datetime import datetime
 from typing import List, Dict, Any
+from helpful_fuctions import clearTerminal, customProgressBar
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.main import *
-from scripts.colors import green, red, yellow, blue, clear, cyan
+from scripts.colors import *
 import localServer
 
 def get_liked_songs_ordered(access_token: str) -> List[Dict[str, Any]]:
@@ -57,7 +58,7 @@ def display_song_list(songs: List[Dict], title: str) -> None:
 def confirm_addition(missing_songs: List[Dict], target_playlist_name: str) -> bool:
     """Ask user for confirmation before adding songs"""
     print(f"\n{green}Ready to add {len(missing_songs)} songs to '{target_playlist_name}'{clear}")
-    print(f"{yellow}These songs will be added in reverse chronological order (newest first){clear}")
+    print(f"{blue}These songs will be added in reverse chronological order (newest first){clear}")
     
     while True:
         choice = input(f"\n{green}Proceed? (y/n): {clear}").lower().strip()
@@ -68,92 +69,107 @@ def confirm_addition(missing_songs: List[Dict], target_playlist_name: str) -> bo
         else:
             print(f"{red}Please enter 'y' or 'n'{clear}")
 
+
+
 def main(quiet: bool = False):
     """Main function to orchestrate the liked songs merging process"""
-    print(f"{green}=== Spotify Liked Songs to Playlist Merger ==={clear}")
-    print("This tool will help you add songs from your Liked Songs to another playlist")
-    print("in reverse chronological order (newest songs first)\n")
-    
+    clearTerminal()
+    print(darkgreen + """
+ $$$$$$\                       $$\     $$\     $$\      $$\                                                   
+$$  __$$\                      $$ |    \__|    $$$\    $$$ |                                                  
+$$ /  \__| $$$$$$\   $$$$$$\ $$$$$$\   $$\ $$\ $$$$\  $$$$ | $$$$$$\   $$$$$$\   $$$$$$\   $$$$$$\   $$$$$$\  
+\$$$$$$\  $$  __$$\ $$  __$$\\\_$$  _|  $$ |\__|$$\$$\$$ $$ |$$  __$$\ $$  __$$\ $$  __$$\ $$  __$$\ $$  __$$\ 
+ \____$$\ $$ /  $$ |$$ /  $$ | $$ |    $$ |    $$ \$$$  $$ |$$$$$$$$ |$$ |  \__|$$ /  $$ |$$$$$$$$ |$$ |  \__|
+$$\   $$ |$$ |  $$ |$$ |  $$ | $$ |$$\ $$ |$$\ $$ |\$  /$$ |$$   ____|$$ |      $$ |  $$ |$$   ____|$$ |      
+\$$$$$$  |$$$$$$$  |\$$$$$$  | \$$$$  |$$ |\__|$$ | \_/ $$ |\$$$$$$$\ $$ |      \$$$$$$$ |\$$$$$$$\ $$ |      
+ \______/ $$  ____/  \______/   \____/ \__|    \__|     \__| \_______|\__|       \____$$ | \_______|\__|      
+          $$ |                                                                  $$\   $$ |                    
+          $$ |                                                                  \$$$$$$  |                    
+          \__|                                                                   \______/""" + clear)
     # Start local server and obtain a valid access token (refresh if possible)
     localServer.start_server(quiet=quiet)
     if not quiet:
-        print(f"{yellow}Authenticating with Spotify...{clear}")
+        print(f"{blue}Authenticating with Spotify...{clear}")
     access_token = get_or_refresh_access_token(interactive=True)
-    
+
     user = get_current_user(access_token)
     if user and 'display_name' in user:
-        print(f"{green}Logged in as: {user['display_name']}{clear}")
+        print(f"{darkgreen}Logged in as: {user['display_name']}{clear}")
     else:
         print(f"{red}Failed to retrieve user info{clear}")
         return
-    
-    # Step 1: Get liked songs (ordered oldest to newest)
-    print(f"\n{yellow}Fetching your liked songs...{clear}")
-    liked_songs = get_liked_songs_ordered(access_token)
-    
-    if not liked_songs:
-        print(f"{red}No liked songs found{clear}")
-        return
-    
-    print(f"{green}Found {len(liked_songs)} liked songs{clear}")
-    
-    # Step 2: Get playlists and let user select target
-    print(f"\n{yellow}Fetching your playlists...{clear}")
+
+    # Step 1: Get playlists and let user select target
+    print(f"\n{blue}Fetching your playlists...{clear}")
     playlists = getPlaylists(access_token)
-    
     if not playlists or 'items' not in playlists:
         print(f"{red}No playlists found{clear}")
         return
-    
+
+    # Apply progress bar to the items in the playlists dictionary
+    playlists['items'] = list(customProgressBar(playlists['items'], total=len(playlists['items'])))
+
+    print(f"{green}OK:{clear} Found {len(playlists['items'])}.")
+
     # Display playlists and get selection
     target_playlist = selectPlaylistInteractively(playlists)
-    
-    if not target_playlist:
-        print(f"{red}No playlist selected{clear}")
-        return
-    
+
+    if not target_playlist: print(f"{red}No playlist selected{clear}") ; return
+
     target_playlist_id = target_playlist['id']
     target_playlist_name = target_playlist['name']
-    
-    print(f"\n{green}Selected playlist: {target_playlist_name}{clear}")
-    
+
+    # Apply progress bar to liked songs
+    print(f"\n{blue}Fetching your liked songs...{clear}")
+
+    # Step 2: Get liked songs (ordered oldest to newest)
+    liked_songs = get_liked_songs_ordered(access_token)
+
+    if not liked_songs:
+        print(f"{red}No liked songs found{clear}")
+        return
+    liked_songs = list(customProgressBar(liked_songs, total=len(liked_songs)))
+    print(f"{green}OK:{clear} Found {len(liked_songs)}.")
+
     # Step 3: Get songs from target playlist
-    print(f"{yellow}Fetching songs from target playlist...{clear}")
-    target_songs = get_target_playlist_songs(access_token, target_playlist_id)
-    
-    if target_songs is None:
+    print(f"\n{blue}Fetching songs from target playlist...{clear}")
+    # Fetch songs and show progress as they are loaded
+    target_songs_raw = get_target_playlist_songs(access_token, target_playlist_id)
+
+    if not target_songs_raw:
         print(f"{red}Failed to fetch target playlist songs{clear}")
         return
-    
-    print(f"{green}Found {len(target_songs)} songs in target playlist{clear}")
-    
+
+    # Use progress bar directly without appending to a new list
+    target_songs = list(customProgressBar(target_songs_raw, total=len(target_songs_raw)))
+    print(f"{green}OK:{clear} Found {len(target_songs)}.")
+
     # Step 4: Find missing songs
     missing_songs = find_missing_songs(liked_songs, target_songs)
-    
+
     if not missing_songs:
-        print(f"{green}All liked songs are already in the target playlist!{clear}")
+        print(f"\n{darkgreen}All liked songs are already in the target playlist!{clear}")
         return
-    
-    print(f"\n{green}Found {len(missing_songs)} songs to add{clear}")
-    
+
+    print(f"\n{green}OK:{clear} Found {len(missing_songs)} to add.")
+
     # Step 5: Display missing songs (in reverse order - newest first)
     missing_reversed = list(reversed(missing_songs))
     display_song_list(missing_reversed, f"Songs to add to '{target_playlist_name}' (newest first)")
-    
+
     # Step 6: Confirm addition
     if not confirm_addition(missing_songs, target_playlist_name):
-        print(f"{yellow}Operation cancelled by user{clear}")
+        print(f"{darkred}Operation cancelled by user{clear}")
         return
-    
+
     # Step 7: Add songs in reverse order (newest first)
     track_uris = [song['uri'] for song in missing_reversed]
-    
-    print(f"\n{yellow}Adding songs to playlist...{clear}")
+
+    print(f"\nAdding songs to playlist...")
     success = addSongsToPlaylist(access_token, target_playlist_id, track_uris)
-    
+
     if success:
-        print(f"{green}Successfully added {len(missing_songs)} songs to '{target_playlist_name}'{clear}")
-        print(f"{green}Songs added in reverse chronological order (newest first){clear}")
+        print(f"{darkgreen}OK:{clear} Added {len(missing_songs)} songs to '{cyan}{target_playlist_name}{clear}'")
     else:
         print(f"{red}Failed to add songs to playlist{clear}")
 
