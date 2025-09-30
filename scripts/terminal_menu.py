@@ -33,6 +33,7 @@ class TerminalMenu:
         self.selected_songs = []
         self.source_playlist = None
         self.target_playlist = None
+        self.quiet = False
         
     def authenticate(self) -> bool:
         """Handle Spotify authentication"""
@@ -44,7 +45,7 @@ class TerminalMenu:
             # get_or_refresh_access_token will perform an interactive flow
             # if necessary.
             # Ensure local server is running before interactive auth is attempted.
-            localServer.start_server()
+            localServer.start_server(quiet=self.quiet)
             self.access_token = get_or_refresh_access_token(interactive=True)
             
             if not self.access_token:

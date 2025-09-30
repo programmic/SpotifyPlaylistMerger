@@ -2,6 +2,8 @@
 
 from flask import Flask, request, make_response
 import threading
+import logging
+import os
 
 app = Flask(__name__)
 auth_code = None
@@ -62,11 +64,29 @@ def callback():
         return resp
 
 
-def start_server():
-        thread = threading.Thread(target=lambda: app.run(port=8888, debug=False, use_reloader=False))
-        thread.daemon = True
-        thread.start()
+def start_server(quiet: bool = False):
+    """Start the local flask server.
+
+    If quiet is True, suppress werkzeug/flask startup output.
+    """
+    if quiet:
+        # Reduce verbosity from werkzeug/flask to hide the development server banner
+        try:
+            logging.getLogger('werkzeug').setLevel(logging.ERROR)
+        except Exception:
+            pass
+        try:
+            logging.getLogger('flask.app').setLevel(logging.ERROR)
+        except Exception:
+            pass
+
+    # Ensure Flask doesn't try to display its banner if running newer versions
+    # (Flask 2.2+ supports show_server_banner argument, but we call via app.run
+    # inside a thread so forcing log level is simpler).
+    thread = threading.Thread(target=lambda: app.run(host='127.0.0.1', port=8888, debug=False, use_reloader=False))
+    thread.daemon = True
+    thread.start()
 
 
 def get_auth_code():
-        return auth_code
+    return auth_code

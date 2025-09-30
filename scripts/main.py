@@ -365,5 +365,8 @@ def addSongsToPlaylist(access_token, playlist_id, track_uris):
     return True
 if __name__ == '__main__':
     # Unified entry point: run the merger as described in the README
+    import sys
     from liked_songs_merger import main as merger_main
-    merger_main()
+    quiet_flag = '--quiet'
+    quiet = quiet_flag in sys.argv
+    merger_main(quiet=quiet)

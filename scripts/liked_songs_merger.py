@@ -68,15 +68,16 @@ def confirm_addition(missing_songs: List[Dict], target_playlist_name: str) -> bo
         else:
             print(f"{red}Please enter 'y' or 'n'{clear}")
 
-def main():
+def main(quiet: bool = False):
     """Main function to orchestrate the liked songs merging process"""
     print(f"{green}=== Spotify Liked Songs to Playlist Merger ==={clear}")
     print("This tool will help you add songs from your Liked Songs to another playlist")
     print("in reverse chronological order (newest songs first)\n")
     
     # Start local server and obtain a valid access token (refresh if possible)
-    localServer.start_server()
-    print(f"{yellow}Authenticating with Spotify...{clear}")
+    localServer.start_server(quiet=quiet)
+    if not quiet:
+        print(f"{yellow}Authenticating with Spotify...{clear}")
     access_token = get_or_refresh_access_token(interactive=True)
     
     user = get_current_user(access_token)
