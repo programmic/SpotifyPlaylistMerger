@@ -55,11 +55,21 @@ def display_song_list(songs: List[Dict], title: str) -> None:
         added_date = datetime.fromisoformat(song['added_at'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
         print(f"{idx:3d}. {blue}{name}{clear} - {cyan}{artists}{clear} ({yellow}{added_date}{clear})")
 
-def confirm_addition(missing_songs: List[Dict], target_playlist_name: str) -> bool:
+def confirm_addition(missing_songs: List[Dict], target_playlist_name: str, supress_inquire: bool = False) -> bool:
     """Ask user for confirmation before adding songs"""
     print(f"\n{green}Ready to add {len(missing_songs)} songs to '{target_playlist_name}'{clear}")
     print(f"{blue}These songs will be added in reverse chronological order (newest first){clear}")
     
+    if not supress_inquire:
+        try:
+            from InquirerPy import inquirer
+            choice = inquirer.confirm(message="Proceed?", default=True).execute()
+            if choice is not None:
+                return choice
+        except ImportError:
+            print("\033[33m[!]: InquirerPy not found, defaulting to command line input\033[0m")
+
+
     while True:
         choice = input(f"\n{green}Proceed? (y/n): {clear}").lower().strip()
         if choice in ['y', 'yes']:

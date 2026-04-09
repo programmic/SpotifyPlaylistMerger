@@ -344,7 +344,7 @@ def getPlaylistItemsDetailed(access_token, playlist_id):
     print()  # Newline after progress bar
     return tracks
 
-def selectPlaylistInteractively(playlists):
+def selectPlaylistInteractively(playlists, supress_inquire=False):
     """Prompt user to select a playlist from a list."""
     items = playlists.get('items', [])
     if not items:
@@ -355,16 +355,37 @@ def selectPlaylistInteractively(playlists):
     for idx, pl in enumerate(items, 1):
         print(f"{idx:2d}. {pl['name']:45}   | {c.black}{pl['id']}{c.clear} |")
     while True:
-        try:
-            choice = int(input(c.blue + "Select playlist number: " + c.clear))
-            if choice == 0:
-                print(c.red + "Process stopped by user: Playlist 0 selected." + c.clear)
-                return None
-            if 1 <= choice <= len(items):
-                return items[choice-1]
-        except Exception:
-            pass
-        print(c.red + "Invalid selection. Try again." + c.clear)
+
+        if supress_inquire:
+            try:
+                choice = int(input(c.blue + "Select playlist number: " + c.clear))
+                if choice == 0:
+                    print(c.red + "Process stopped by user: Playlist 0 selected." + c.clear)
+                    return None
+                if 1 <= choice <= len(items):
+                    return items[choice-1]
+            except Exception:
+                pass
+            print(c.red + "Invalid selection. Try again." + c.clear)
+
+        else:
+            try:
+                from InquirerPy import inquirer
+                # playlists are already printed above, so we just ask for the number
+                choice = inquirer.text(message="Enter playlist number (or 0 to cancel):").execute()
+                try:
+                    choice = int(choice)
+                except:
+                    print(c.red + "Invalid input. Please enter a number." + c.clear)
+                    continue
+                if choice == 0:
+                    print(c.red + "Process stopped by user: Playlist 0 selected." + c.clear)
+                    return None
+                if 1 <= choice <= len(items):
+                    return items[choice-1]
+            except ImportError:
+                print("\033[33m[!]: InquirerPy not found, defaulting to command line input\033[0m")
+                supress_inquire = True
 
 def addSongsToPlaylist(access_token, playlist_id, track_uris):
     """Add a list of track URIs to a playlist. Returns True if successful."""

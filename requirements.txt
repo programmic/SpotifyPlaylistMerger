@@ -6,11 +6,15 @@ colorama==0.4.6
 dotenv==0.9.9
 Flask==3.1.2
 idna==3.10
+inquirerpy==0.3.4
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
+pfzy==0.3.4
+prompt_toolkit==3.0.52
 python-dotenv==1.1.1
 requests==2.32.5
 tqdm==4.67.1
 urllib3==2.5.0
+wcwidth==0.6.0
 Werkzeug==3.1.3
