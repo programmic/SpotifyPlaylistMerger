@@ -1,4 +1,5 @@
 import colors as colors
+import math
 
 clear = "\033c"
 
@@ -58,7 +59,7 @@ def abschnitt(pBeschriftung):
 def customProgressBar(iterable, total, width=40, newline:bool=False):
     """Custom progress bar generator."""
     for i, item in enumerate(iterable, 1):
-        progress = int(round((i / total) * width))  # Adjusted to use round to avoid truncation errors
+        progress = int(math.ceil((i / total) * width))  # Adjusted to use round to avoid truncation errors
         bar = f"[{'#' * progress}{'-' * (width - progress)}]"
         print(f"\r{bar} {i}/{total}", end="", flush=True)
         yield item

@@ -12,7 +12,6 @@ import colors as c
 import json
 import tempfile
 from pathlib import Path
-from tqdm import tqdm
 
 # Load environment variables
 load_dotenv()
@@ -143,8 +142,6 @@ def get_current_user(access_token):
         return response.json()
     return None
 
-
-
 def get_auth_code_via_browser():
     params = {
         'client_id': CLIENT_ID,
@@ -156,23 +153,26 @@ def get_auth_code_via_browser():
 
     # Create a small launcher HTML that opens the auth URL as a popup. This
     # improves the ability of the popup to close itself after redirect.
-    launcher_html = f'''<!doctype html>
-<html><head><meta charset="utf-8"><title>Spotify Auth</title></head>
-<body>
-  <p>Opening authentication window...</p>
-  <script>
-    var popup = window.open("{auth_url}", "spotify_auth_popup", "width=900,height=800");
-    // Listen for message from the popup (the popup will postMessage on success)
-    window.addEventListener('message', function(evt){{
-      try{{
-        if(evt.data && evt.data.type === 'spotify_auth'){{
-          // Optionally notify user and close
-          window.close();
-        }}
-      }}catch(e){{}}
-    }}, false);
-  </script>
-</body></html>'''
+    launcher_html = f'''
+            <!doctype html>
+                <html><head><meta charset="utf-8"><title>Spotify Auth</title></head>
+                    <body>
+                    <p>Opening authentication window...</p>
+                    <script>
+                        var popup = window.open("{auth_url}", "spotify_auth_popup", "width=900,height=800");
+                        // Listen for message from the popup (the popup will postMessage on success)
+                        window.addEventListener('message', function(evt){{
+                        try{{
+                            if(evt.data && evt.data.type === 'spotify_auth'){{
+                            // Optionally notify user and close
+                            window.close();
+                            }}
+                        }}catch(e){{}}
+                        }}, false);
+                </script>
+            </body>
+        </html>
+    '''
 
     # Write to a temporary file and open it with the system default browser
     try:
@@ -344,6 +344,28 @@ def getPlaylistItemsDetailed(access_token, playlist_id):
     print()  # Newline after progress bar
     return tracks
 
+def selectDefaultPlaylist(playlists: dict):
+    """Checks whether the defualt playlist is avalible with write access
+
+    Args:
+        playlists (list[str]): list of playlists
+    """
+    
+    default_id = os.getenv("DEFAULT_PLAYLIST_ID")
+    if default_id is None:
+        raise("Encountered error loading DEFAULT_PLAYLIST_ID from dotenv")
+    
+    items = playlists.get('items', [])
+    if not items:
+        print(c.red + "No playlists available." + c.clear)
+        return None
+
+    for i in items:
+        if i.get("id") == default_id:
+            return i
+    return "_DEFAULT_NOT_FOUND_"
+    
+    
 def selectPlaylistInteractively(playlists, supress_inquire=False):
     """Prompt user to select a playlist from a list."""
     items = playlists.get('items', [])
@@ -409,4 +431,7 @@ if __name__ == '__main__':
     from liked_songs_merger import main as merger_main
     quiet_flag = '--quiet'
     quiet = quiet_flag in sys.argv
-    merger_main(quiet=quiet)
+    
+    flag_use_default_playlist = '--default'
+    use_default_playlist = flag_use_default_playlist in sys.argv
+    merger_main(quiet=quiet, default_playlist=use_default_playlist)

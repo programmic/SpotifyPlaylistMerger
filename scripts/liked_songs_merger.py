@@ -81,7 +81,7 @@ def confirm_addition(missing_songs: List[Dict], target_playlist_name: str, supre
 
 
 
-def main(quiet: bool = False):
+def main(quiet: bool = False, default_playlist: bool = False):
     """Main function to orchestrate the liked songs merging process"""
     clearTerminal()
     print(darkgreen + """
@@ -121,8 +121,13 @@ $$\   $$ |$$ |  $$ |$$ |  $$ | $$ |$$\ $$ |$$\ $$ |\$  /$$ |$$   ____|$$ |      
 
     print(f"{green}OK:{clear} Found {len(playlists['items'])}.")
 
-    # Display playlists and get selection
-    target_playlist = selectPlaylistInteractively(playlists)
+    if not default_playlist:
+        # Display playlists and get selection
+        target_playlist = selectPlaylistInteractively(playlists)
+        print(target_playlist)
+    else:
+        target_playlist = selectDefaultPlaylist(playlists)
+        print("Selected default playlist:", target_playlist.get("name"))
 
     if not target_playlist: print(f"{red}No playlist selected{clear}") ; return
 
