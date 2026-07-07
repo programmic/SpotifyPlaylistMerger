@@ -1,4 +1,4 @@
-import colors as colors
+from . import colors as colors
 import math
 
 clear = "\033c"

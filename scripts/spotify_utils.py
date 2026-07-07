@@ -1,4 +1,4 @@
-# main.py
+# scripts/spotify_utils.py
 
 import os
 import time
@@ -6,9 +6,9 @@ import requests
 import webbrowser
 from urllib.parse import urlencode
 from dotenv import load_dotenv
-import localServer
-import helpful_fuctions as h
-import colors as c
+from . import localServer
+from . import helpful_fuctions as h
+from . import colors as c
 import json
 import tempfile
 from pathlib import Path
@@ -24,6 +24,10 @@ SCOPE = 'playlist-read-private playlist-modify-private playlist-modify-public us
 AUTH_URL = 'https://accounts.spotify.com/authorize'
 TOKEN_URL = 'https://accounts.spotify.com/api/token'
 API_BASE_URL = 'https://api.spotify.com/v1'
+
+# Simple file-based token storage (stored in user home). For a more secure
+# solution use the OS keyring via the `keyring` package.
+TOKEN_FILE = str(Path.home() / '.spotify_tokens.json')
 
 def get_access_token(auth_code):
     data = {
@@ -43,7 +47,6 @@ def get_access_token(auth_code):
     save_tokens_from_response(token_data)
     return token_data.get('access_token')
 
-
 def refresh_access_token(refresh_token):
     data = {
         'grant_type': 'refresh_token',
@@ -60,12 +63,6 @@ def refresh_access_token(refresh_token):
         token_data['refresh_token'] = refresh_token
     save_tokens_from_response(token_data)
     return token_data.get('access_token')
-
-
-# Simple file-based token storage (stored in user home). For a more secure
-# solution use the OS keyring via the `keyring` package.
-TOKEN_FILE = str(Path.home() / '.spotify_tokens.json')
-
 
 def save_tokens_from_response(token_response: dict):
     # token_response expected fields: access_token, expires_in, refresh_token
@@ -91,14 +88,12 @@ def save_tokens_from_response(token_response: dict):
     except Exception:
         pass
 
-
 def load_tokens():
     try:
         with open(TOKEN_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return None
-
 
 def token_valid(tokens: dict) -> bool:
     if not tokens:
@@ -109,7 +104,6 @@ def token_valid(tokens: dict) -> bool:
         return False
     # consider token invalid if expiring within 30 seconds
     return int(time.time()) + 30 < int(expires_at)
-
 
 def get_or_refresh_access_token(interactive=True):
     """Return a valid access token. If possible, refresh using stored refresh
@@ -225,29 +219,6 @@ def getPlaylists(accessToken):
 
     return {'items': editable}
 
-def printPlaylistData(data):
-    if data is not None and isinstance(data, dict):
-        print(data.keys())
-        for i in data["items"]:
-            print("\n\n", "#"*50, "\n\n")
-            keys = i.keys()
-            for x in keys:
-                t = type(i[x])
-                if t == str or t == bool or i[x] is None:
-                    print(h.lenformat(x, 15), ":", i[x])
-                elif t == dict:
-                    print(h.lenformat(x, 15), ":")
-
-                    tmp = i[x].keys()
-                    for c, n in enumerate(tmp):
-                        print(" " * 15, n)
-                elif t == list:
-                    print(h.lenformat(x, 15), ":")
-                    for n in i[x]:
-                        print(" " * 15, n)
-                else:
-                    print("\033[35m" + str(h.lenformat("<REDACTED>", 15)) + str(i[x]) + "\033[0;0m")
-
 def getPlaylistItems(accessToken, UPLID):
     headers = {'Authorization': f'Bearer {accessToken}'}
     response = requests.get(f"{API_BASE_URL}/playlists/{UPLID}/tracks", headers=headers)
@@ -344,6 +315,46 @@ def getPlaylistItemsDetailed(access_token, playlist_id):
     print()  # Newline after progress bar
     return tracks
 
+def addSongsToPlaylist(access_token, playlist_id, track_uris):
+    """Add a list of track URIs to a playlist. Returns True if successful."""
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+    url = f"{API_BASE_URL}/playlists/{playlist_id}/tracks"
+    # Spotify API allows max 100 tracks per request
+    for i in range(0, len(track_uris), 100):
+        uris = track_uris[i:i+100]
+        payload = {'uris': uris}
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code not in (200, 201):
+            print(c.red + f"Failed to add tracks: {response.status_code}" + c.clear)
+            return False
+    return True
+
+def printPlaylistData(data):
+    if data is not None and isinstance(data, dict):
+        print(data.keys())
+        for i in data["items"]:
+            print("\n\n", "#"*50, "\n\n")
+            keys = i.keys()
+            for x in keys:
+                t = type(i[x])
+                if t == str or t == bool or i[x] is None:
+                    print(h.lenformat(x, 15), ":", i[x])
+                elif t == dict:
+                    print(h.lenformat(x, 15), ":")
+
+                    tmp = i[x].keys()
+                    for c, n in enumerate(tmp):
+                        print(" " * 15, n)
+                elif t == list:
+                    print(h.lenformat(x, 15), ":")
+                    for n in i[x]:
+                        print(" " * 15, n)
+                else:
+                    print("\033[35m" + str(h.lenformat("<REDACTED>", 15)) + str(i[x]) + "\033[0;0m")
+
 def selectDefaultPlaylist(playlists: dict):
     """Checks whether the defualt playlist is avalible with write access
 
@@ -364,7 +375,6 @@ def selectDefaultPlaylist(playlists: dict):
         if i.get("id") == default_id:
             return i
     return "_DEFAULT_NOT_FOUND_"
-    
     
 def selectPlaylistInteractively(playlists, supress_inquire=False):
     """Prompt user to select a playlist from a list."""
@@ -409,29 +419,3 @@ def selectPlaylistInteractively(playlists, supress_inquire=False):
                 print("\033[33m[!]: InquirerPy not found, defaulting to command line input\033[0m")
                 supress_inquire = True
 
-def addSongsToPlaylist(access_token, playlist_id, track_uris):
-    """Add a list of track URIs to a playlist. Returns True if successful."""
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-    }
-    url = f"{API_BASE_URL}/playlists/{playlist_id}/tracks"
-    # Spotify API allows max 100 tracks per request
-    for i in range(0, len(track_uris), 100):
-        uris = track_uris[i:i+100]
-        payload = {'uris': uris}
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code not in (200, 201):
-            print(c.red + f"Failed to add tracks: {response.status_code}" + c.clear)
-            return False
-    return True
-if __name__ == '__main__':
-    # Unified entry point: run the merger as described in the README
-    import sys
-    from liked_songs_merger import main as merger_main
-    quiet_flag = '--quiet'
-    quiet = quiet_flag in sys.argv
-    
-    flag_use_default_playlist = '--default'
-    use_default_playlist = flag_use_default_playlist in sys.argv
-    merger_main(quiet=quiet, default_playlist=use_default_playlist)

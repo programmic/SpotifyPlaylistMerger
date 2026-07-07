@@ -3,7 +3,6 @@
 from flask import Flask, request, make_response
 import threading
 import logging
-import os
 
 app = Flask(__name__)
 auth_code = None

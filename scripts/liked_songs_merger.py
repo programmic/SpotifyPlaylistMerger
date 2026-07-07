@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
+
+from .spotify_utils import *
+
 """
 Liked Songs to Playlist Merger
 Takes songs from user's liked playlist and adds them to a selected playlist
 in reverse chronological order (newest first)
 """
 
-import os
 import sys
 import time
 from datetime import datetime
 from typing import List, Dict, Any
-from helpful_fuctions import clearTerminal, customProgressBar
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from scripts.main import *
-from scripts.colors import *
-import localServer
+from .helpful_fuctions import clearTerminal, customProgressBar
+from .colors import *
+from . import localServer
 
 def get_liked_songs_ordered(access_token: str) -> List[Dict[str, Any]]:
     """Get liked songs ordered by date added (oldest first)"""

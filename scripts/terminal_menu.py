@@ -10,6 +10,8 @@ import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from .spotify_utils import *
+
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,7 +22,7 @@ from scripts.liked_songs_merger import (
     display_song_list,
     confirm_addition
 )
-from scripts.main import * 
+from main import * 
 import scripts.localServer as localServer
 
 class TerminalMenu:
