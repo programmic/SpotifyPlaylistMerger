@@ -18,8 +18,7 @@ load_dotenv()
 
 CLIENT_ID = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
-REDIRECT_URI = os.getenv('REDIRECT_URI', 'http://localhost:8888/callback')
-REDIRECT_URI = 'http://localhost:8888/callback'
+REDIRECT_URI = os.getenv('REDIRECT_URI', 'http://127.0.0.1:8888/callback')
 SCOPE = 'playlist-read-private playlist-modify-private playlist-modify-public user-library-read'
 AUTH_URL = 'https://accounts.spotify.com/authorize'
 TOKEN_URL = 'https://accounts.spotify.com/api/token'

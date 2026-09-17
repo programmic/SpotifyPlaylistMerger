@@ -121,7 +121,8 @@ $$\   $$ |$$ |  $$ |$$ |  $$ | $$ |$$\ $$ |$$\ $$ |\$  /$$ |$$   ____|$$ |      
     if not default_playlist:
         # Display playlists and get selection
         target_playlist = selectPlaylistInteractively(playlists)
-        print(target_playlist)
+        # print(target_playlist)
+        #TODO: ADD COOL PLAYLIST INFO
     else:
         target_playlist = selectDefaultPlaylist(playlists)
         print("Selected default playlist:", target_playlist.get("name"))

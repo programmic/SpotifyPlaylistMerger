@@ -87,7 +87,7 @@ MIT License
 ### Spotify app setup (redirect URI)
 
 - Go to the Spotify Developer Dashboard: https://developer.spotify.com/dashboard/applications
-- Create (or select) your app and set the Redirect URI to `http://localhost:8888/callback` (or update `REDIRECT_URI` in your `.env`).
+- Create (or select) your app and set the Redirect URI to `http://127.0.0.1:8888/callback` (or update `REDIRECT_URI` in your `.env`).
 - Make sure your app's client ID and client secret are set in your environment (see below).
 
 ### Required environment variables
@@ -97,7 +97,7 @@ Create a `.env` file in the project root (this file is ignored by git). Example 
 ```
 CLIENT_ID=your_spotify_client_id
 CLIENT_SECRET=your_spotify_client_secret
-REDIRECT_URI=http://localhost:8888/callback
+REDIRECT_URI=http://127.0.0.1:8888/callback
 ```
 
 The project uses `python-dotenv` to load these values at runtime.
